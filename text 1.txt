@@ -1,0 +1,367 @@
+-- Google Gemini AI Chat GUI for Roblox - Mobile Optimized
+-- Features: ChatGPT design, white background, mobile friendly, fixed gear button
+-- Powered by Google Gemini AI - Compatible with Delta and other executors
+
+-- Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
+
+-- Delta compatibility check
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Ensure executor environment is ready
+if not game.IsLoaded then
+    game.Loaded:Wait()
+end
+
+-- Configuration
+local AI_API_KEY = "AIzaSyBXOUVH52UNmCvI-RhLbW_PdZTyW9xOrUg" -- Substitua pela sua API Key do Gemini
+local AI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" .. AI_API_KEY
+
+-- Language setting
+local currentLanguage = nil -- "pt" ou "en"
+
+-- Create main ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AIChat"
+screenGui.Parent = playerGui
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Create gear icon (fixed toggle button)
+local gearIcon = Instance.new("TextButton")
+gearIcon.Name = "GearIcon"
+gearIcon.Parent = screenGui
+gearIcon.Size = UDim2.new(0, 50, 0, 50)
+gearIcon.Position = UDim2.new(1, -70, 0, 20)
+gearIcon.BackgroundColor3 = Color3.fromRGB(25, 195, 125)
+gearIcon.BorderSizePixel = 0
+gearIcon.Text = "🤖"
+gearIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+gearIcon.TextScaled = true
+gearIcon.Font = Enum.Font.GothamBold
+gearIcon.AnchorPoint = Vector2.new(0, 0)
+
+local gearCorner = Instance.new("UICorner")
+gearCorner.CornerRadius = UDim.new(0.5, 0)
+gearCorner.Parent = gearIcon
+
+-- Add shadow effect to gear icon
+local gearShadow = Instance.new("Frame")
+gearShadow.Name = "Shadow"
+gearShadow.Parent = screenGui
+gearShadow.Size = UDim2.new(0, 54, 0, 54)
+gearShadow.Position = UDim2.new(1, -68, 0, 22)
+gearShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+gearShadow.BackgroundTransparency = 0.8
+gearShadow.ZIndex = gearIcon.ZIndex - 1
+
+local shadowCorner = Instance.new("UICorner")
+shadowCorner.CornerRadius = UDim.new(0.5, 0)
+shadowCorner.Parent = gearShadow
+
+-- Main chat frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "ChatFrame"
+mainFrame.Parent = screenGui
+mainFrame.Size = UDim2.new(0.95, 0, 0.8, 0)
+mainFrame.Position = UDim2.new(0.025, 0, 0.1, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+mainFrame.BorderSizePixel = 1
+mainFrame.BorderColor3 = Color3.fromRGB(220, 220, 220)
+mainFrame.Visible = false
+mainFrame.Active = true
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 15)
+mainCorner.Parent = mainFrame
+
+-- Shadow main frame
+local mainShadow = Instance.new("Frame")
+mainShadow.Name = "Shadow"
+mainShadow.Parent = screenGui
+mainShadow.Size = UDim2.new(0.95, 4, 0.8, 4)
+mainShadow.Position = UDim2.new(0.025, 2, 0.1, 2)
+mainShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+mainShadow.BackgroundTransparency = 0.9
+mainShadow.ZIndex = mainFrame.ZIndex - 1
+
+local mainShadowCorner = Instance.new("UICorner")
+mainShadowCorner.CornerRadius = UDim.new(0, 12)
+mainShadowCorner.Parent = mainShadow
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Parent = mainFrame
+titleBar.Size = UDim2.new(1, 0, 0, 40)
+titleBar.BackgroundColor3 = Color3.fromRGB(247, 247, 248)
+titleBar.BorderSizePixel = 0
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 15)
+titleCorner.Parent = titleBar
+
+local titleFix = Instance.new("Frame")
+titleFix.Parent = titleBar
+titleFix.Size = UDim2.new(1, 0, 0, 15)
+titleFix.Position = UDim2.new(0, 0, 1, -15)
+titleFix.BackgroundColor3 = Color3.fromRGB(247, 247, 248)
+titleFix.BorderSizePixel = 0
+
+local titleText = Instance.new("TextLabel")
+titleText.Parent = titleBar
+titleText.Size = UDim2.new(1, -80, 1, 0)
+titleText.Position = UDim2.new(0, 15, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "AI of XSILV7"
+titleText.TextColor3 = Color3.fromRGB(52, 53, 65)
+titleText.TextSize = 16
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Font = Enum.Font.GothamBold
+
+local closeButton = Instance.new("TextButton")
+closeButton.Parent = titleBar
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -35, 0, 5)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeButton.Text = "×"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextScaled = true
+closeButton.Font = Enum.Font.GothamBold
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0.5, 0)
+closeCorner.Parent = closeButton
+
+-- Chat display
+local chatDisplay = Instance.new("ScrollingFrame")
+chatDisplay.Parent = mainFrame
+chatDisplay.Size = UDim2.new(1, -20, 1, -100)
+chatDisplay.Position = UDim2.new(0, 10, 0, 50)
+chatDisplay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+chatDisplay.BorderSizePixel = 0
+chatDisplay.ScrollBarThickness = 8
+chatDisplay.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
+
+local chatCorner = Instance.new("UICorner")
+chatCorner.CornerRadius = UDim.new(0, 10)
+chatCorner.Parent = chatDisplay
+
+local chatLayout = Instance.new("UIListLayout")
+chatLayout.Parent = chatDisplay
+chatLayout.Padding = UDim.new(0, 8)
+chatLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Input area
+local inputFrame = Instance.new("Frame")
+inputFrame.Parent = mainFrame
+inputFrame.Size = UDim2.new(1, -20, 0, 35)
+inputFrame.Position = UDim2.new(0, 10, 1, -45)
+inputFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+inputFrame.BorderSizePixel = 0
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 8)
+inputCorner.Parent = inputFrame
+
+local textInput = Instance.new("TextBox")
+textInput.Parent = inputFrame
+textInput.Size = UDim2.new(1, -70, 1, -6)
+textInput.Position = UDim2.new(0, 8, 0, 3)
+textInput.BackgroundTransparency = 1
+textInput.PlaceholderText = "Digite sua pergunta aqui..."
+textInput.TextColor3 = Color3.fromRGB(52, 53, 65)
+textInput.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+textInput.TextSize = 16
+textInput.Font = Enum.Font.Gotham
+textInput.ClearTextOnFocus = false
+textInput.TextXAlignment = Enum.TextXAlignment.Left
+textInput.Text = "" 
+
+local sendButton = Instance.new("TextButton")
+sendButton.Parent = inputFrame
+sendButton.Size = UDim2.new(0, 55, 1, -6)
+sendButton.Position = UDim2.new(1, -58, 0, 3)
+sendButton.BackgroundColor3 = Color3.fromRGB(25, 195, 125)
+sendButton.Text = "▶"
+sendButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+sendButton.TextSize = 16
+sendButton.Font = Enum.Font.GothamBold
+
+local sendCorner = Instance.new("UICorner")
+sendCorner.CornerRadius = UDim.new(0, 6)
+sendCorner.Parent = sendButton
+
+-- Chat history
+local chatHistory = {}
+
+-- Function to create chat message
+local function createChatMessage(text, isUser)
+    local messageFrame = Instance.new("Frame")
+    messageFrame.Parent = chatDisplay
+    messageFrame.Size = UDim2.new(1, -10, 0, 40)
+    messageFrame.BackgroundColor3 = isUser and Color3.fromRGB(16, 163, 127) or Color3.fromRGB(247, 247, 248)
+    messageFrame.BorderSizePixel = 0
+    
+    local messageCorner = Instance.new("UICorner")
+    messageCorner.CornerRadius = UDim.new(0, 8)
+    messageCorner.Parent = messageFrame
+    
+    local messageText = Instance.new("TextLabel")
+    messageText.Parent = messageFrame
+    messageText.Size = UDim2.new(1, -20, 1, -10)
+    messageText.Position = UDim2.new(0, 10, 0, 5)
+    messageText.BackgroundTransparency = 1
+    messageText.Text = text
+    messageText.TextColor3 = Color3.fromRGB(52, 53, 65)
+    messageText.TextWrapped = true
+    messageText.TextXAlignment = Enum.TextXAlignment.Left
+    messageText.TextYAlignment = Enum.TextYAlignment.Top
+    messageText.Font = Enum.Font.Gotham
+    messageText.TextSize = 14
+
+    chatDisplay.CanvasSize = UDim2.new(0, 0, 0, chatLayout.AbsoluteContentSize.Y + 10)
+    chatDisplay.CanvasPosition = Vector2.new(0, chatDisplay.CanvasSize.Y.Offset)
+
+    return messageFrame
+end
+
+-- Send to AI (with language setting)
+local function sendToAI(message)
+    local systemPrompt = ""
+    if currentLanguage == "pt" then
+        systemPrompt = "Você é um assistente de IA útil integrado ao Roblox. Responda sempre em português brasileiro. Seja conciso mas prestativo. Mensagem do usuário: "
+    else
+        systemPrompt = "You are a helpful AI assistant integrated into Roblox. Always respond in English. Be concise but helpful. User message: "
+    end
+
+    local requestData = {
+        contents = {
+            {
+                parts = {
+                    { text = systemPrompt .. message }
+                }
+            }
+        },
+        generationConfig = { maxOutputTokens = 500, temperature = 0.7 }
+    }
+
+    local success, response = pcall(function()
+        if syn and syn.request then
+            return syn.request({ Url = AI_API_URL, Method = "POST", Headers = {["Content-Type"]="application/json"}, Body = HttpService:JSONEncode(requestData) })
+        elseif request then
+            return request({ Url = AI_API_URL, Method = "POST", Headers = {["Content-Type"]="application/json"}, Body = HttpService:JSONEncode(requestData) })
+        else
+            local result = HttpService:PostAsync(AI_API_URL, HttpService:JSONEncode(requestData), Enum.HttpContentType.ApplicationJson, false, {})
+            return {Body = result, StatusCode = 200}
+        end
+    end)
+
+    if success and response then
+        local parseSuccess, data = pcall(function() return HttpService:JSONDecode(response.Body) end)
+        if parseSuccess and data and data.candidates and data.candidates[1] then
+            return data.candidates[1].content.parts[1].text
+        end
+    end
+    return "❌ Erro ao processar resposta da API."
+end
+
+-- Handle send
+local function handleSendMessage()
+    local message = textInput.Text:gsub("^%s*(.-)%s*$", "%1")
+    if message == "" then return end
+    createChatMessage(message, true)
+    textInput.Text = ""
+    local typingMessage = createChatMessage("Digitando...", false)
+    spawn(function()
+        local aiResponse = sendToAI(message)
+        typingMessage:Destroy()
+        createChatMessage(aiResponse, false)
+    end)
+end
+
+sendButton.MouseButton1Click:Connect(handleSendMessage)
+textInput.FocusLost:Connect(function(enterPressed) if enterPressed then handleSendMessage() end end)
+closeButton.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
+
+-- ========================
+-- Language selection popup
+-- ========================
+local languageFrame = Instance.new("Frame")
+languageFrame.Parent = screenGui
+languageFrame.Size = UDim2.new(0.6, 0, 0.3, 0)
+languageFrame.Position = UDim2.new(0.2, 0, 0.35, 0)
+languageFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+languageFrame.Visible = false
+languageFrame.ZIndex = 50
+
+local langCorner = Instance.new("UICorner")
+langCorner.CornerRadius = UDim.new(0, 12)
+langCorner.Parent = languageFrame
+
+local langTitle = Instance.new("TextLabel")
+langTitle.Parent = languageFrame
+langTitle.Size = UDim2.new(1, 0, 0, 50)
+langTitle.BackgroundTransparency = 1
+langTitle.Text = "🌐 Choose your language / Escolha seu idioma"
+langTitle.TextColor3 = Color3.fromRGB(52, 53, 65)
+langTitle.Font = Enum.Font.GothamBold
+langTitle.TextSize = 16
+
+local ptButton = Instance.new("TextButton")
+ptButton.Parent = languageFrame
+ptButton.Size = UDim2.new(0.4, 0, 0, 40)
+ptButton.Position = UDim2.new(0.1, 0, 0.5, 0)
+ptButton.BackgroundColor3 = Color3.fromRGB(25, 195, 125)
+ptButton.Text = "🇧🇷 Português"
+ptButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ptButton.Font = Enum.Font.GothamBold
+ptButton.TextSize = 16
+
+local ptCorner = Instance.new("UICorner")
+ptCorner.CornerRadius = UDim.new(0, 8)
+ptCorner.Parent = ptButton
+
+local enButton = Instance.new("TextButton")
+enButton.Parent = languageFrame
+enButton.Size = UDim2.new(0.4, 0, 0, 40)
+enButton.Position = UDim2.new(0.5, 0, 0.5, 0)
+enButton.BackgroundColor3 = Color3.fromRGB(25, 120, 195)
+enButton.Text = "🇺🇸 English"
+enButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+enButton.Font = Enum.Font.GothamBold
+enButton.TextSize = 16
+
+local enCorner = Instance.new("UICorner")
+enCorner.CornerRadius = UDim.new(0, 8)
+enCorner.Parent = enButton
+
+ptButton.MouseButton1Click:Connect(function()
+    currentLanguage = "pt"
+    languageFrame.Visible = false
+    mainFrame.Visible = true
+    createChatMessage("Olá! Sou o Google Gemini, seu assistente de IA. Como posso ajudá-lo hoje?", false)
+end)
+
+enButton.MouseButton1Click:Connect(function()
+    currentLanguage = "en"
+    languageFrame.Visible = false
+    mainFrame.Visible = true
+    createChatMessage("Hello! I'm Google Gemini, your AI assistant. How can I help you today?", false)
+end)
+
+gearIcon.MouseButton1Click:Connect(function()
+    if not currentLanguage then
+        languageFrame.Visible = true
+    else
+        mainFrame.Visible = not mainFrame.Visible
+    end
+end)
+
+print("🚀 AI XSILV7 Mobile GUI carregada!")
